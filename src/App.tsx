@@ -37,6 +37,11 @@ export function App(): React.ReactElement {
     await openLogin.login()
   }
 
+  const handleSignOut = async (): Promise<void> => {
+    await openLogin.logout()
+    setPrivateKey('')
+  }
+
   const handleTransaction = async (): Promise<void> => {
     const clause = connex.thor.account("0x8384738c995d49c5b692560ae688fc8b51af1059")
       .method({ "inputs": [], "name": "increment", "outputs": [], "stateMutability": "nonpayable", "type": "function" })
@@ -48,10 +53,18 @@ export function App(): React.ReactElement {
 
   return (
     <Row gutter={[24, 24]}>
-      <Col span={24}>
-        {privateKey === '' && <Button onClick={handleSignIn}>sign in</Button>}
-        {privateKey !== '' && <Button onClick={handleTransaction}>send transaction</Button>}
-      </Col>
+      {privateKey === '' && (
+        <Col span={24}>
+          <Button onClick={handleSignIn}>sign in</Button>
+        </Col>
+      )}
+
+      {privateKey !== '' && (
+        <Col span={24}>
+          <Button onClick={handleSignOut}>sign out</Button>
+          <Button onClick={handleTransaction}>send transaction</Button>
+        </Col>
+      )}
       <Col span={24}>
         <code>
           Private Key: {privateKey}
