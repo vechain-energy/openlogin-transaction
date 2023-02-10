@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Button, Row, Col } from 'antd'
-import OpenLogin from '@toruslabs/openlogin'
+import { Web3Auth } from "@web3auth/modal";
+import { OpenloginAdapter } from "@web3auth/openlogin-adapter";
+import { CHAIN_NAMESPACES, ADAPTER_EVENTS, CONNECTED_EVENT_DATA } from "@web3auth/base";
 import Connex from "@vechain/connex";
 import { Transaction, secp256k1 } from "thor-devkit";
 import { ethers } from "@vechain/ethers"
@@ -8,13 +10,25 @@ import bent from "bent"
 
 import { WEB3AUTH_CLIENT_ID, WEB3AUTH_NEWORK } from './constants'
 
-const openLogin = new OpenLogin({
+const web3auth = new Web3Auth({
   clientId: WEB3AUTH_CLIENT_ID,
-  network: WEB3AUTH_NEWORK,
-  uxMode: 'redirect',
-  replaceUrlOnRedirect: true,
-  whiteLabel: {}
-})
+  web3AuthNetwork: WEB3AUTH_NEWORK,
+  chainConfig: {
+    chainNamespace: CHAIN_NAMESPACES.OTHER,
+    displayName: 'VeChain',
+    ticker: 'VET',
+    tickerName: 'VeChain'
+  },
+});
+
+const openloginAdapter = new OpenloginAdapter({
+  adapterSettings: {
+    network: WEB3AUTH_NEWORK,
+    uxMode: "popup",
+  },
+});
+web3auth.configureAdapter(openloginAdapter);
+
 
 const connex = new Connex({
   node: "https://testnet.veblocks.net",
@@ -27,20 +41,42 @@ export function App(): React.ReactElement {
   const [privateKey, setPrivateKey] = useState<string>('')
   const [txId, setTxId] = useState<string>('')
 
-  useEffect(() => {
-    openLogin.init()
-      .then(() => setPrivateKey(openLogin.privKey))
-  }, [])
+  const subscribeAuthEvents = (web3auth: Web3Auth) => {
+    web3auth.on(ADAPTER_EVENTS.CONNECTED, (data: CONNECTED_EVENT_DATA) => {
+      console.log("connected to wallet", data);
 
-  const handleSignIn = async (): Promise<void> => {
-    // @ts-ignore
-    await openLogin.login()
-  }
+      if (web3auth.provider) {
+        web3auth.provider.request({ method: "private_key" })
+          .then(privateKey => setPrivateKey(String(privateKey)))
+      }
+      else {
+        setPrivateKey('')
+      }
+    });
 
-  const handleSignOut = async (): Promise<void> => {
-    await openLogin.logout()
-    setPrivateKey('')
-  }
+    web3auth.on(ADAPTER_EVENTS.CONNECTING, () => {
+      console.log("connecting");
+      setPrivateKey('')
+    });
+
+    web3auth.on(ADAPTER_EVENTS.DISCONNECTED, () => {
+      console.log("disconnected");
+      setPrivateKey('')
+    });
+
+    web3auth.on(ADAPTER_EVENTS.ERRORED, (error) => {
+      console.log("error", error);
+    });
+
+    web3auth.on(ADAPTER_EVENTS.ERRORED, (error) => {
+      console.log("error", error);
+    });
+  };
+
+
+
+  const handleSignIn = async (): Promise<void> => { await web3auth.connect() }
+  const handleSignOut = async (): Promise<void> => web3auth.logout()
 
   const handleTransaction = async (): Promise<void> => {
     const clause = connex.thor.account("0x8384738c995d49c5b692560ae688fc8b51af1059")
@@ -51,25 +87,31 @@ export function App(): React.ReactElement {
     await setTxId(txid);
   }
 
+  useEffect(() => {
+    web3auth.initModal()
+    subscribeAuthEvents(web3auth)
+  }, [])
+
   return (
     <Row gutter={[24, 24]}>
-      {privateKey === '' && (
-        <Col span={24}>
-          <Button onClick={handleSignIn}>sign in</Button>
-        </Col>
-      )}
 
-      {privateKey !== '' && (
-        <Col span={24}>
-          <Button onClick={handleSignOut}>sign out</Button>
-          <Button onClick={handleTransaction}>send transaction</Button>
-        </Col>
-      )}
+      <Col span={24}>
+        {privateKey === ''
+          ? <Button block size='large' type='primary' onClick={handleSignIn}>sign in</Button>
+          : <Button block size='large' danger onClick={handleSignOut}>sign out</Button>
+        }
+      </Col>
+
+      <Col span={24}>
+        <Button block size='large' type='primary' onClick={handleTransaction} disabled={privateKey === ''}>send a test transaction</Button>
+      </Col>
+
       <Col span={24}>
         <code>
-          Private Key: {privateKey}
+          Your Private Key: {privateKey}
         </code>
       </Col>
+
       {txId !== '' && (
         <Col span={24}>
           <a href={`https://explore-testnet.vechain.org/transactions/${txId}`} target="_blank" rel="noopener noreferrer">{txId}</a>

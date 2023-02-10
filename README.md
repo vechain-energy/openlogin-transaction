@@ -1,6 +1,8 @@
-- sign in with a social account
-- build a transaction and sign int
-- submit transaction to network
+This project displays how to connect a user to the Blockchain using social credentials.
+
+1. Users will sign in with Web3Auth
+1. Web3Auth provides access to a private key in a save session
+1. The private key is used to generte, sign & submit a test transaction
 
 # Scripts
 
@@ -13,7 +15,9 @@ Install parcel and react (https://parceljs.org/recipes/react):
 
 ```shell
 yarn add --dev parcel
-yarn add react react-dom @vechain/connex antd thor-devkit @toruslabs@openlogin@2 @vechain/ethers bent @vechain/connex
+yarn add react react-dom antd
+yarn add @vechain/connex thor-devkit @vechain/ethers bent
+yarn add @walletconnect/client @web3auth/modal
 yarn add --dev @types/react @types/react-dom ts-standard typescript
 ```
 
@@ -25,3 +29,9 @@ Add shortcuts in `package.json`:
     "start": "parcel serve src/index.html"
   }
 ```
+
+Configure Web3Auth Client:
+
+- https://dashboard.web3auth.io/home/web3auth
+- Configure Client Id and network type in `constants.ts`
+- Whitelist your Testdomain (http://localhost:1234 in local development mode)
