@@ -24,7 +24,7 @@ const web3auth = new Web3Auth({
 const openloginAdapter = new OpenloginAdapter({
   adapterSettings: {
     network: WEB3AUTH_NEWORK,
-    uxMode: "popup",
+    uxMode: "redirect"
   },
 });
 web3auth.configureAdapter(openloginAdapter);
