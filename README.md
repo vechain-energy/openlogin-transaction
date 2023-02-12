@@ -4,6 +4,14 @@ This project displays how to connect a user to the Blockchain using social crede
 1. Web3Auth provides access to a private key in a save session
 1. The private key is used to generte, sign & submit a test transaction
 
+The example project is deployed here:
+
+- https://web3auth.example.vechain.energy
+
+A blog article explaining snippets of it is available here:
+
+- https://blog.vechain.energy/8bb646ae6a4a
+
 # Scripts
 
 * **`yarn start`** for running a development version

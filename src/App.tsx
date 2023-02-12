@@ -1,15 +1,24 @@
+/**
+ * load all required modules
+ */
 import { useEffect, useState } from 'react'
 import { Button, Row, Col } from 'antd'
 import { Web3Auth } from "@web3auth/modal";
 import { OpenloginAdapter } from "@web3auth/openlogin-adapter";
 import { CHAIN_NAMESPACES, ADAPTER_EVENTS, CONNECTED_EVENT_DATA } from "@web3auth/base";
 import Connex from "@vechain/connex";
-import { Transaction, secp256k1 } from "thor-devkit";
 import { ethers } from "@vechain/ethers"
+import { Transaction, secp256k1 } from "thor-devkit";
 import bent from "bent"
 
-import { WEB3AUTH_CLIENT_ID, WEB3AUTH_NEWORK } from './constants'
+/**
+ * load the projects configuration values
+ */
+import { WEB3AUTH_CLIENT_ID, WEB3AUTH_NEWORK, DELEGATE_URL, CONNEX_NODE } from './constants'
 
+/**
+ * initialize Web3Auth
+ */
 const web3auth = new Web3Auth({
   clientId: WEB3AUTH_CLIENT_ID,
   web3AuthNetwork: WEB3AUTH_NEWORK,
@@ -29,18 +38,21 @@ const openloginAdapter = new OpenloginAdapter({
 });
 web3auth.configureAdapter(openloginAdapter);
 
-
-const connex = new Connex({
-  node: "https://testnet.veblocks.net",
-  network: "test"
-});
-
-const DELEGATE_URL = "https://sponsor-testnet.vechain.energy/by/90";
+/**
+ * initialize a Connex instance
+ */
+const connex = new Connex(CONNEX_NODE);
 
 export function App(): React.ReactElement {
+  // the private key is stored in the local state
   const [privateKey, setPrivateKey] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
   const [txId, setTxId] = useState<string>('')
 
+  /**
+   * listen to auth-state changes and keep the private key state in sync with the user
+   * @param web3auth 
+   */
   const subscribeAuthEvents = (web3auth: Web3Auth) => {
     web3auth.on(ADAPTER_EVENTS.CONNECTED, (data: CONNECTED_EVENT_DATA) => {
       console.log("connected to wallet", data);
@@ -74,19 +86,38 @@ export function App(): React.ReactElement {
   };
 
 
-
+  /**
+   * bridge basic login/logout functionality
+   */
   const handleSignIn = async (): Promise<void> => { await web3auth.connect() }
   const handleSignOut = async (): Promise<void> => web3auth.logout()
 
+  /**
+   * generate a random transaction
+   */
   const handleTransaction = async (): Promise<void> => {
+    setLoading(true)
     const clause = connex.thor.account("0x8384738c995d49c5b692560ae688fc8b51af1059")
       .method({ "inputs": [], "name": "increment", "outputs": [], "stateMutability": "nonpayable", "type": "function" })
       .asClause()
 
-    const txid = await signTransactionWithPrivateKey([clause], new ethers.Wallet(privateKey));
-    await setTxId(txid);
+    const txId = await signTransactionWithPrivateKey([clause], new ethers.Wallet(privateKey));
+    await setTxId(txId);
+
+    do {
+      const tx = connex.thor.transaction(txId)
+      const receipt = await tx.getReceipt()
+      if (receipt) {
+        break
+      }
+      await connex.thor.ticker().next()
+    } while (true)
+    setLoading(false)
   }
 
+  /**
+   * initialize web3auth and subscribe to auth events
+   */
   useEffect(() => {
     web3auth.initModal()
     subscribeAuthEvents(web3auth)
@@ -103,7 +134,7 @@ export function App(): React.ReactElement {
       </Col>
 
       <Col span={24}>
-        <Button block size='large' type='primary' onClick={handleTransaction} disabled={privateKey === ''}>send a test transaction</Button>
+        <Button block loading={loading} size='large' type='primary' onClick={handleTransaction} disabled={privateKey === ''}>send a test transaction</Button>
       </Col>
 
       <Col span={24}>
@@ -122,8 +153,18 @@ export function App(): React.ReactElement {
 }
 
 
-async function signTransactionWithPrivateKey(clauses, wallet): Promise<string> {
+
+
+/**
+ * generate a signed transaction and broadcast to the network
+ * @param clauses 
+ * @param wallet 
+ * @returns transactionId
+ */
+export default async function signTransactionWithPrivateKey(clauses, wallet): Promise<string> {
   const post = bent("POST", "json");
+
+
   const transaction = new Transaction({
     chainTag: Number.parseInt(connex.thor.genesis.id.slice(-2), 16),
     blockRef: connex.thor.status.head.id.slice(0, 18),
@@ -168,7 +209,7 @@ async function signTransactionWithPrivateKey(clauses, wallet): Promise<string> {
 
   // post transaction to node
   const signedTransaction = `0x${transaction.encode().toString("hex")}`;
-  const { id } = await post("https://testnet.veblocks.net/transactions", {
+  const { id } = await post(`${CONNEX_NODE.node}/transactions`, {
     raw: signedTransaction
   });
 
