@@ -2,7 +2,7 @@ This project displays how to connect a user to the Blockchain using social crede
 
 1. Users will sign in with Web3Auth
 1. Web3Auth provides access to a private key in a save session
-1. The private key is used to generte, sign & submit a test transaction
+1. The private key is used to generate, sign & submit a test transaction
 
 The example project is deployed here:
 
